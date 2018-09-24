@@ -120,7 +120,7 @@ next_step::= .
 */
 function::= VOID VAR LPAREN parameters RPAREN predicate_declaration LBR block(b) RBR.
 {
-std::cout << "====================== NEXT STEP =============================" << std::endl;
+std::cout << "================= PARSING FINISHED ==================================" << std::endl;	
 	std::sort (b->begin(),b->end(),sortLinesFunction);
 	std::sort (s.predicates->begin(),s.predicates->end(),sortStringFunction);
 
@@ -139,8 +139,8 @@ std::cout << "====================== NEXT STEP =============================" <<
 		std::cout << "ALL ABSTRACTIONS ARE VALID!" << std::endl;
 	else
 		std::cout << "NOT ALL ABSTRACTIONS ARE VALID!" << std::endl;
+std::cout << "================= ABSTRACTION VERIFICATION FINISHED =================" << std::endl;
 
-	
 	
 	
 	// GRAPHVIZ
@@ -157,8 +157,8 @@ std::cout << "====================== NEXT STEP =============================" <<
 	if(s.bool_mc_has_endless_loop)
 		std::cout << "This Abstraction leads to an endless loop and never terminates!" << std::endl;
 		
-		
-	
+std::cout << "================= CEX ANALYSIS FINISHED =============================" << std::endl;		
+
 	
 	for(Line* line : *b)
 	{		
@@ -230,6 +230,7 @@ predicate_declaration::= line_no(no) ABSTRACTION_START PREDICATE_TOKEN VAR(v) CO
 
 	s.predicates->push_back(*v);
 	s.predicates_expr->push_back(*cond);
+	//std::cout << s.predicates_expr->back() << std::endl;
 	delete cond;
 	delete v;
 

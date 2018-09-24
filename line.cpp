@@ -111,7 +111,13 @@ bool Line::verifyAbstraction()
 	solver_abstraction.add(code);
 	solver_abstraction.add(conjecture_abstraction);
 	result = try_arbitrary_setting(&solver_code, &solver_abstraction, vec_arb, 0);
-
+	
+	
+	if(result==z3::unsat)
+	{
+		std::cout << "Abstraction of Line " << getLine() << " is not correct" << std::endl;
+	}
+	
 	#ifdef DEBUGVERIFY
 	std::cout << "Result of recursiv check: "  << result << std::endl;
 	if(result==z3::unsat)
@@ -462,7 +468,7 @@ void ConditionalLine::try_every_target_setting(GraphvizHandler* gh, std::vector<
 				std::vector<line_eval*>* path_lines_new = new std::vector<line_eval*>(*path_lines);
 				
 				bool eval = ((try_twice==0)?true:false);
-				path_lines_new->push_back(new line_eval(static_cast<Line*>(this),eval));
+				path_lines_new->push_back(new line_eval(static_cast<Line*>(this),eval, NULL));
 				this->printEdges(gh, setting, setting_target, path_lines_new, eval);
 			}
 		solver.pop();
@@ -565,7 +571,7 @@ void NormalLine::try_every_target_setting(GraphvizHandler* gh, std::vector<predi
 		#endif // ifdef DEBUGBOOLMC
 		
 		std::vector<line_eval*>* path_lines_new = new std::vector<line_eval*>(*path_lines);
-		path_lines_new->push_back(new line_eval(static_cast<Line*>(this),true));
+		path_lines_new->push_back(new line_eval(static_cast<Line*>(this),true, NULL));
 		this->printEdges(gh, setting, setting_target, path_lines_new);
 		//we added found model to constraints and now we try again
 		}
@@ -574,7 +580,7 @@ void NormalLine::try_every_target_setting(GraphvizHandler* gh, std::vector<predi
 
 void SkipLine::try_every_target_setting(GraphvizHandler* gh, std::vector<predicate_setting> setting, std::vector<line_eval*>* path_lines)
 {
-	path_lines->push_back(new line_eval(static_cast<Line*>(this),true));
+	path_lines->push_back(new line_eval(static_cast<Line*>(this),true, NULL));
 	this->printEdges(gh, setting, setting, path_lines);
 }
 
@@ -612,9 +618,14 @@ void EndLine::try_every_target_setting(GraphvizHandler* gh, std::vector<predicat
 
 	
 
-	path_lines->push_back(new line_eval(static_cast<Line*>(this),true));
+	path_lines->push_back(new line_eval(static_cast<Line*>(this),true, NULL)); //do this inside the cex analysis by adding predicates as true
 	s_->bool_mc_has_endless_loop = false;
-	std::cout << "START PATH: ";
+		
+		#ifdef DEBUGCEXANALYSIS
+		std::cout << "START PATH: ";
+		#endif // ifdef DEBUGCEXANALYSIS
+		
+		
 	for(line_eval* le : *path_lines)
 	{
 		#ifdef DEBUGCEXANALYSIS
@@ -635,6 +646,15 @@ void EndLine::try_every_target_setting(GraphvizHandler* gh, std::vector<predicat
 	}
 	else
 	{
+		//hihglight the CEX Path in Graphviz Graph
+			for(line_eval* line_to_highlight : *path_lines)
+				{
+					if(line_to_highlight->edge!=NULL)
+					{
+						gh->formatEdge(line_to_highlight->edge, false, true, true);		
+					}
+				}
+	
 		#ifdef DEBUGCEXANALYSIS
 		std::cout << "This Path does contradict the assert." << std::endl;
 		#endif // ifdef DEBUGCEXANALYSIS
@@ -648,15 +668,26 @@ void EndLine::try_every_target_setting(GraphvizHandler* gh, std::vector<predicat
 void Line::AnalyseCounterExample(std::vector<line_eval*>* path_lines)
 {
 	z3::solver solver(*s_->c);
-	std::vector<z3::expr*>* abs_vec = add_predicates(&solver, false);
-	delete abs_vec;
-	
+	//std::vector<z3::expr*>* abs_vec = add_predicates(&solver, false);
+	//delete abs_vec;
+	bool cex_is_spurious = false;
 	std::vector<std::vector<z3::expr>*>* abstractions = new std::vector<std::vector<z3::expr>*>();
 	
-	solver.push();
 	
+	
+	//add predicate conditions
+	for(z3::expr pred : *s_->predicates_expr)
+	{
+	//std::cout << pred << std::endl;
+		solver.add(pred);
+	}
+	solver.push();
+
 	for(int index = path_lines->size()-1;index > 0;index--)
 	{
+		//highlight the CEX Path in the Graphviz Graph
+		
+	
 		//first line must be a condition e.g. the assert!!!
 		if((index == path_lines->size()-1)&&(dynamic_cast<LineAssignment*>(path_lines->at(index)->line)!=NULL))
 		{
@@ -699,6 +730,7 @@ void Line::AnalyseCounterExample(std::vector<line_eval*>* path_lines)
 			//solver.add(abstractions->back()); //adds the code line
 		}
 		
+		//std::cout << solver << std::endl;
 		solver.pop();
 		solver.push();
 		for(z3::expr ex : *current_abstractions	)
@@ -706,6 +738,7 @@ void Line::AnalyseCounterExample(std::vector<line_eval*>* path_lines)
 		solver.add(ex);
 		}
 		
+		//std::cout << solver << std::endl;
 		
 		if(solver.check()==z3::unsat)
 		{
@@ -715,7 +748,8 @@ void Line::AnalyseCounterExample(std::vector<line_eval*>* path_lines)
 			
 			solver.pop();
 			solver.push();
-			findNewPredicates(&solver, abstractions, path_lines,0);
+			std::cout << solver << std::endl;
+			cex_is_spurious = cex_is_spurious || findNewPredicates(&solver, abstractions, path_lines,0); //the moment we find predicates the CEX is spurious
 			break;
 		}
 		else
@@ -723,11 +757,18 @@ void Line::AnalyseCounterExample(std::vector<line_eval*>* path_lines)
 			//std::cout << "Do nothing (" << path_lines->at(index)->line->getLine() << ")" << std::endl;
 		}
 		//std::cout << "Line: " << path_lines->at(index)->line->getLine() <<  solver << std::endl;
-		
 
 		
 	}
 	
+	if(cex_is_spurious)
+	{
+		std::cout << "CEX is spurious!" << std::endl;
+	}
+	else
+	{
+		std::cout << "CEX is NOT spurious! -> Assert CAN be violated" << std::endl;
+	}
 	
 
 }
@@ -758,7 +799,7 @@ void LineAssignment::substituteStuffInLastLine(std::vector<z3::expr>* vec_expr, 
 	}
 }
 
-void Line::findNewPredicates(z3::solver* solver, std::vector<std::vector<z3::expr>*>* abstractions, std::vector<line_eval*>* path_lines, int depth)
+bool Line::findNewPredicates(z3::solver* solver, std::vector<std::vector<z3::expr>*>* abstractions, std::vector<line_eval*>* path_lines, int depth)
 {	
 		int line_version = abstractions->size()-1;
 		int index = 0;
@@ -796,6 +837,8 @@ void Line::findNewPredicates(z3::solver* solver, std::vector<std::vector<z3::exp
 		{
 			std::cout << "new predicate: " << ex << std::endl;
 		}
+		
+		return (new_predicates.size()!=0); //if we found new predicates -> return true;
 }
 
 std::vector<z3::expr> Line::removeDuplicates(std::vector<z3::expr> vec_expr)
@@ -834,7 +877,7 @@ void LineAssignment::printEdges(GraphvizHandler* gh, std::vector<predicate_setti
 	}
 	else
 	{
-		gh->addEdgeStuff(this, this->getNextLine(), setting, setting_target);
+		path_lines->back()->edge = gh->addEdgeStuff(this, this->getNextLine(), setting, setting_target);
 		//TODO: add line to path
 		this->getNextLine()->try_every_target_setting(gh, setting_target, path_lines); //setting_target is the new initial point
 	}
@@ -858,12 +901,12 @@ void LineIf::printEdges(GraphvizHandler* gh, std::vector<predicate_setting> sett
 	{
 		if(cond_is_sat)
 		{
-			gh->addEdgeStuff(this, if_block_->front(), setting, setting_target);
+			path_lines->back()->edge = gh->addEdgeStuff(this, if_block_->front(), setting, setting_target);
 			if_block_->front()->try_every_target_setting(gh, setting_target, path_lines); //setting_target is the new initial point
 		}
 		else
 		{
-			gh->addEdgeStuff(this, this->getNextLine(), setting, setting_target);
+			path_lines->back()->edge = gh->addEdgeStuff(this, this->getNextLine(), setting, setting_target);
 			this->getNextLine()->try_every_target_setting(gh, setting_target, path_lines); //setting_target is the new initial point
 		}
 	}
@@ -888,12 +931,12 @@ void LineIfElse::printEdges(GraphvizHandler* gh, std::vector<predicate_setting> 
 		if(cond_is_sat)
 		{
 		
-			gh->addEdgeStuff(this, if_block_->front(), setting, setting_target);
+			path_lines->back()->edge = gh->addEdgeStuff(this, if_block_->front(), setting, setting_target);
 			if_block_->front()->try_every_target_setting(gh, setting_target, path_lines); //setting_target is the new initial point
 		}
 		else
 		{
-			gh->addEdgeStuff(this, else_block_->front(), setting, setting_target);
+			path_lines->back()->edge = gh->addEdgeStuff(this, else_block_->front(), setting, setting_target);
 			else_block_->front()->try_every_target_setting(gh, setting_target, path_lines); //setting_target is the new initial point
 		}
 	}
@@ -917,12 +960,12 @@ void LineWhile::printEdges(GraphvizHandler* gh, std::vector<predicate_setting> s
 	{
 		if(cond_is_sat)
 		{
-			gh->addEdgeStuff(this, while_block_->front(), setting, setting_target);
+			path_lines->back()->edge = gh->addEdgeStuff(this, while_block_->front(), setting, setting_target);
 			while_block_->front()->try_every_target_setting(gh, setting_target, path_lines); //setting_target is the new initial point
 		}
 		else
 		{
-			gh->addEdgeStuff(this, this->getNextLine(), setting, setting_target);
+			path_lines->back()->edge = gh->addEdgeStuff(this, this->getNextLine(), setting, setting_target);
 			this->getNextLine()->try_every_target_setting(gh, setting_target, path_lines); //setting_target is the new initial point
 		}
 	}
@@ -938,7 +981,7 @@ void LineAssert::printEdges(GraphvizHandler* gh, std::vector<predicate_setting> 
 	}
 	else
 	{
-		gh->addEdgeStuff(this, this->getNextLine(), setting, setting_target);
+		path_lines->back()->edge = gh->addEdgeStuff(this, this->getNextLine(), setting, setting_target);
 		this->getNextLine()->try_every_target_setting(gh, setting_target, path_lines); //setting_target is the new initial point
 	}
 }
@@ -953,7 +996,7 @@ void LineSkip::printEdges(GraphvizHandler* gh, std::vector<predicate_setting> se
 	}
 	else
 	{
-		gh->addEdgeStuff(this, this->getNextLine(), setting, setting_target);
+		path_lines->back()->edge = gh->addEdgeStuff(this, this->getNextLine(), setting, setting_target);
 		this->getNextLine()->try_every_target_setting(gh, setting_target, path_lines); //setting_target is the new initial point
 	}
 }

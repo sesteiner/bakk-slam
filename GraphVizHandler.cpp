@@ -34,7 +34,7 @@ Agedge_t* GraphvizHandler::addEdge(Agnode_t* n1, Agnode_t* n2, std::string name,
 		}
 	}
 	
-Agedge_t* GraphvizHandler::formatEdge(Agedge_t* edge, bool set_constraint, bool set_color, bool draw_reverse, PORT_DIRECTION port)
+Agedge_t* GraphvizHandler::formatEdge(Agedge_t* edge, bool set_constraint, bool set_color, bool highlight, bool draw_reverse, PORT_DIRECTION port)
 {
 
 	
@@ -56,14 +56,28 @@ Agedge_t* GraphvizHandler::formatEdge(Agedge_t* edge, bool set_constraint, bool 
 		agset(edge, &color[0u], &color_value[0u]);
 		
 		std::string style = std::string("style");
-		std::string style_value = std::string("dotted");
+		std::string style_value = std::string("invis");
 		agset(edge, &style[0u], &style_value[0u]);
 	}
 	else
 	{
-		std::string style = std::string("style");
-		std::string style_value = std::string("solid");
-		agset(edge, &style[0u], &style_value[0u]);
+	
+		if(highlight)
+		{
+			std::string color = std::string("color");
+			std::string color_value = std::string("blue");
+			agset(edge, &color[0u], &color_value[0u]);
+		
+			std::string style = std::string("style");
+			std::string style_value = std::string("solid");
+			agset(edge, &style[0u], &style_value[0u]);
+		}
+		else
+		{
+			std::string style = std::string("style");
+			std::string style_value = std::string("solid");
+			agset(edge, &style[0u], &style_value[0u]);
+		}
 	}
 
 	if(port!=PORT_DIRECTION::C)
@@ -266,7 +280,7 @@ std::string GraphvizHandler::getNodeLabelFromSetting(std::vector<predicate_setti
 	return predicates + "\\n" + p_setting + "\\n";
 }
 
-void GraphvizHandler::addEdgeStuff(Line* this_line, Line* next_line, std::vector<predicate_setting> setting, std::vector<predicate_setting> setting_target, PORT_DIRECTION port)
+Agedge_t* GraphvizHandler::addEdgeStuff(Line* this_line, Line* next_line, std::vector<predicate_setting> setting, std::vector<predicate_setting> setting_target, PORT_DIRECTION port)
 {	
 	
 	bool draw_reverse = false;
@@ -294,7 +308,7 @@ void GraphvizHandler::addEdgeStuff(Line* this_line, Line* next_line, std::vector
 
 	Agnode_t* n1 = addNode(node_start); //returns pointer to existing node
 	Agnode_t* n2 = addNode(node_end); //returns pointer to existing node
-	Agedge_t* e = formatEdge(addEdge(n1,n2,"aa", draw_reverse), port_means_constraint, true, draw_reverse, port); //might return pointer to existing node;
+	Agedge_t* e = formatEdge(addEdge(n1,n2,"aa", draw_reverse), port_means_constraint, true, false, draw_reverse, port); //might return pointer to existing node;
 
 	std::string color = std::string("color");
 	std::string color_value = std::string("black");
@@ -302,7 +316,7 @@ void GraphvizHandler::addEdgeStuff(Line* this_line, Line* next_line, std::vector
 	
 	//addNode("L" + std::to_string(line->getLine()) + pred + "F"); //returns pointer to existing node
 	//std::vector<Agnode_t*> current_nodes;
-	//return current_nodes;
+	return e;
 }
 
 

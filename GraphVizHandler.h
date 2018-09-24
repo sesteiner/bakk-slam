@@ -61,7 +61,7 @@ class GraphvizHandler
 
 	Agedge_t* addEdge(Agnode_t* n1, Agnode_t* n2, std::string name, bool draw_reverse = false);
 	
-	Agedge_t* formatEdge(Agedge_t* edge, bool set_constraint_to_false = false, bool set_color = true, bool draw_reverse = false, PORT_DIRECTION port = PORT_DIRECTION::C );
+	Agedge_t* formatEdge(Agedge_t* edge, bool set_constraint_to_false = false, bool set_color = true, bool highlight = false, bool draw_reverse = false, PORT_DIRECTION port = PORT_DIRECTION::C );
 	
 	Agraph_t* createGraph(std::vector<Line*>* lines);
 
@@ -74,7 +74,7 @@ class GraphvizHandler
 		
 	std::vector<Agnode_t*> addLineStuff(Line* line, std::vector<Agnode_t*> previous_nodes);
 	
-	void addEdgeStuff(Line* this_line, Line* next_line, std::vector<predicate_setting> setting, std::vector<predicate_setting> setting_target, PORT_DIRECTION port = PORT_DIRECTION::C);
+	Agedge_t* addEdgeStuff(Line* this_line, Line* next_line, std::vector<predicate_setting> setting, std::vector<predicate_setting> setting_target, PORT_DIRECTION port = PORT_DIRECTION::C);
 	
 	std::vector<Agnode_t*> addStructurNodes();
 };

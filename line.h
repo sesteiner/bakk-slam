@@ -85,7 +85,7 @@ class Line
 
 		bool verifyAbstraction();
 		void AnalyseCounterExample(std::vector<line_eval*>* path_lines);
-		void findNewPredicates(z3::solver* solver, std::vector<std::vector<z3::expr>*>* abstractions, std::vector<line_eval*>* path_lines, int depth = 0);
+		bool findNewPredicates(z3::solver* solver, std::vector<std::vector<z3::expr>*>* abstractions, std::vector<line_eval*>* path_lines, int depth = 0);
 		std::vector<z3::expr> removeDuplicates(std::vector<z3::expr> vec_expr);
 			
     // Destructor

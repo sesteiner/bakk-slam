@@ -6,6 +6,7 @@
 #include <map>
 #include <vector>
 #include <string>
+#include <graphviz/gvc.h>
 
 
 //install with sudo apt-get install z3 something something
@@ -70,10 +71,12 @@ struct line_eval
 {
 	Line* line;
 	bool eval;
+	Agedge_t* edge;
 	
-	line_eval(Line* l, bool e) {
+	line_eval(Line* l, bool e, Agedge_t* ed) {
 	line = l;
 	eval = e;
+	edge = ed;
 	};
 	
 	~line_eval()

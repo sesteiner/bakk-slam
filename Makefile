@@ -1,3 +1,5 @@
+VPATH = include
+
 all: lemon flex
 	g++ -g -std=c++11 -o slam flex.cpp lemon.c slam.cpp line.cpp GraphVizHandler.cpp -lz3 -lgvc -lcgraph -lcdt
 
@@ -30,7 +32,7 @@ syntax: lemon flex
 
 lines: lemon flex
 	g++ -g -std=c++11 -DLINES -o slam flex.cpp lemon.c slam.cpp line.cpp GraphVizHandler.cpp -lz3 -lgvc -lcgraph -lcdt
-
+	
 types: lemon flex
 	g++ -g -std=c++11 -DTYPES -o slam flex.cpp lemon.c slam.cpp line.cpp GraphVizHandler.cpp -lz3 -lgvc -lcgraph -lcdt
 
@@ -49,6 +51,8 @@ ours:
 
 
 clean:
+	rm out.dot
+	rm out.png
 	rm flex.cpp
 	rm flex.h
 	rm lemon.h

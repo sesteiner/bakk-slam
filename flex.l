@@ -7,6 +7,9 @@
 
   #include <map>
 
+	//install using branch in folder dependancies
+	#include "cxxopts.hpp"
+
 %}
 
 
@@ -135,7 +138,32 @@ int main(int argc, char** argv)
 {
   try
   {
-    return parse(std::cin);
+  /*
+    std::cout << "test" << std::endl;
+  	cxxopts::Options options("SLAM-Analyser", "Analyses student files");
+  	std::cout << "test" << std::endl;
+  	options.add_options()
+			("d,debug", "Enable debugging")
+			("f,file", "File name", cxxopts::value<std::string>())
+			("f2,file2", "File name of second Step", cxxopts::value<std::string>())
+			;
+  	std::cout << "test" << std::endl;
+  	auto result = options.parse(argc, argv);	
+  	std::cout << "test" << std::endl;
+  	std::fstream inputFile;
+    inputFile.open(result["f"].as<std::string>(), std::fstream::in);
+    if(!inputFile){
+        std::cerr << "Error opening input file";
+        exit(1);
+    }
+    
+    std::cout << "test" << std::endl;
+    std::istream&    s   = inputFile;
+    std::cout << "test" << std::endl;
+    return parse(s);
+  std::cout << "test" << std::endl;  
+    */
+  return parse(std::cin);
   }
   catch (std::exception e)
   {
