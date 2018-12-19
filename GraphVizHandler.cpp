@@ -166,6 +166,7 @@ std::vector<Agnode_t*> GraphvizHandler::addStructurNodes()
 std::vector<Agnode_t*> GraphvizHandler::addLineStuff(Line* line, std::vector<Agnode_t*> previous_nodes)
 {
 	std::vector<Agnode_t*> current_nodes; 
+	Agraph_t* sgraph;
 	int index = 0;
 	bool first_line=false;
 	
@@ -192,8 +193,10 @@ std::vector<Agnode_t*> GraphvizHandler::addLineStuff(Line* line, std::vector<Agn
 	
 	
 	if(!first_line)
+	{
 		formatEdge(addEdge(previous_nodes.at(0),n_abs,"aa"), true, false);
-		
+		//create subgraphs for each column!
+	}	
 	current_nodes.push_back(n_abs);
 					
 	//Do this for all values of pred and setting
@@ -203,7 +206,7 @@ std::vector<Agnode_t*> GraphvizHandler::addLineStuff(Line* line, std::vector<Agn
 	
 	//TODO: somehow sort his mess of current_nodes 
 	
-		
+					
 	
 	if(first_line)//horizontal grid only in first line
 	{ 
@@ -224,12 +227,35 @@ std::vector<Agnode_t*> GraphvizHandler::addLineStuff(Line* line, std::vector<Agn
 		}
 		*/
 		
+		int	current_column = 1;
 		for(Agnode_t* n : current_nodes) 
 		{
+		
+		Agraph_t *h;
+
+				std::string name = "cluster_column_"+std::to_string(current_column);
+				current_column++;
+				/*search for subgraph by name*/
+				h = agsubg(this->graph_,strdup((name).c_str()),FALSE);
+
+				if (!h) /*create subgraph by name*/
+					h = agsubg(this->graph_,strdup((name).c_str()),TRUE);
+				//std::cout << "Created: " << strdup((name).c_str()) << std::endl;
+				//format subgraph
+				std::string attr_subgraph = std::string("style");
+				std::string attr_subgraph_value = std::string("invis");
+				agset(h, &attr_subgraph[0u], &attr_subgraph_value[0u]);
+				
+				//add each node in first line to the corresponding cluster
+				agsubnode(h, n, TRUE);
+				
 			Agedge_t* e;
 			if(n != n_abs)
 			{	
-				e = formatEdge(addEdge(n_prev,n,"aa"), false, false);				
+				e = formatEdge(addEdge(n_prev,n,"aa"), false, false);		
+				
+				
+						
 			}
 			//std::string attr_len = std::string("weight");
 			//std::string attr_len_value = std::string("2");
@@ -242,7 +268,15 @@ std::vector<Agnode_t*> GraphvizHandler::addLineStuff(Line* line, std::vector<Agn
 	assert(current_nodes.size()==previous_nodes.size());
 		for(int i = 0; i < current_nodes.size(); i++)
 		{
+		Agraph_t *h;
 			formatEdge(addEdge(previous_nodes.at(i),current_nodes.at(i),"aa"), true, false);
+			
+			//adding each node to the previous node subgraph
+			std::string name = "cluster_column_"+std::to_string(i+1);
+			//std::cout << "seraching for cluter: "<<name << std::endl;
+			h = agsubg(this->graph_,strdup((name).c_str()),FALSE);
+			if(h) //found it
+				agsubnode(h, current_nodes.at(i), TRUE);
 		}	
 	}
 	

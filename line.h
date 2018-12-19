@@ -82,7 +82,9 @@ class Line
 		// 	DON'T forget to delete the vector aferwards!!
 		//
 		std::vector<z3::expr*>* add_predicates(z3::solver* solver, bool single_state_assingment);
-
+		std::vector<z3::expr*>* get_arbitraries_vector();
+		
+		z3::check_result try_arbitrary_setting_arbitraries(z3::solver* solver, z3::solver* solver2, std::vector<z3::expr*>* arb_vec, int position);
 		bool verifyAbstraction();
 		void AnalyseCounterExample(std::vector<line_eval*>* path_lines);
 		bool findNewPredicates(z3::solver* solver, std::vector<std::vector<z3::expr>*>* abstractions, std::vector<line_eval*>* path_lines, int depth = 0);

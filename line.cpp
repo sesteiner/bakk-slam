@@ -81,8 +81,17 @@ std::vector<z3::expr*>* Line::add_predicates(z3::solver* solver, bool single_sta
 		}
 	}
 
+	//adding arbitraries (each * in the code) - this is overkill but less work than distinguishing if these * are used in this line
+	/* commented out for a reason! 
+		for (auto const& x : *(s_->arbitraries))
+		{            
+			z3::expr* arb = new z3::expr(s_->c->bool_const(x.first.c_str()));
+			vec_arb->push_back(arb);
+		}
+		*/
 	return vec_arb;
 }
+
 
 bool Line::verifyAbstraction() 
 {
@@ -107,10 +116,11 @@ bool Line::verifyAbstraction()
 	//create vector with all arbitraries or predicates
 	std::vector<z3::expr*>* vec_arb = add_predicates(&solver_code, expression_->needsSingleStateAssingment_);
 	std::vector<z3::expr*>* vec_arb2 = add_predicates(&solver_abstraction, expression_->needsSingleStateAssingment_); //take needsSSA from expression, because otherwise for skip this will result in stupid stuff
+	
 	solver_code.add(code);
-	solver_abstraction.add(code);
+	//solver_abstraction.add(code);
 	solver_abstraction.add(conjecture_abstraction);
-	result = try_arbitrary_setting(&solver_code, &solver_abstraction, vec_arb, 0);
+	result = try_arbitrary_setting(&solver_code, &solver_abstraction, vec_arb, 0);	
 	
 	
 	if(result==z3::unsat)
@@ -150,6 +160,48 @@ bool Line::verifyAbstraction()
 	return abstraction_is_valid;
 }		
 
+std::vector<z3::expr*>* Line::get_arbitraries_vector()
+{
+	//create vector with all arbitraries or predicates
+	std::vector<z3::expr*>* vec_arb = new std::vector<z3::expr*>();
+	//adding arbitraries (each * in the code) - this is overkill but less work than distinguishing if these * are used in this line
+		for (auto const& x : *(s_->arbitraries))
+		{            
+			z3::expr* arb = new z3::expr(s_->c->bool_const(x.first.c_str()));
+			vec_arb->push_back(arb);
+		}
+		
+		return vec_arb;
+}
+
+
+z3::check_result Line::try_arbitrary_setting_arbitraries(z3::solver* solver, z3::solver* solver2, std::vector<z3::expr*>* arb_vec, int position)
+{
+		z3::check_result result1 =  z3::unknown;
+		z3::check_result result2 =  z3::unknown;
+		//solver 2 is supposed to be the abstraction solver
+		solver2->push();
+		solver2->add(*(arb_vec->at(position)) == s_->c->bool_val(true));
+		result1 = solver2->check();
+		//if(result1==z3::unsat)
+			//std::cout << "Solver after * = true: "<< std::endl << *solver2 << std::endl;
+		solver2->pop();
+		
+		solver2->push();
+		solver2->add(*(arb_vec->at(position)) == s_->c->bool_val(false));
+		result2 = solver2->check();
+		//if(result2==z3::unsat)
+			//std::cout << "Solver after * = false: "<< std::endl << *solver2 << std::endl;
+		solver2->pop();
+		
+		if((result1==z3::sat)||(result2==z3::sat)) 
+			return z3::sat;	//they dissagree but one of them is satisfiable
+		else
+			return z3::unsat; //none of them are satisfiable
+//TODO: make this work for multiple arbitraries!!!!!!!!!!!
+}
+
+
 //
 // 	Checks if on any "setting" (true/false) of the vector both solvers have the same result
 // 	returns z3::unsat if not
@@ -158,9 +210,9 @@ bool Line::verifyAbstraction()
 z3::check_result Line::try_arbitrary_setting(z3::solver* solver, z3::solver* solver2, std::vector<z3::expr*>* arb_vec, int position)
 {
 	z3::check_result result = z3::unknown;
-
+		//std::cout << "position: " << position+1 << "/" << arb_vec->size() << std::endl;
 	//check if last node
-	if(position >= (arb_vec->size()-1)) { //last node 
+	if(position == (arb_vec->size()-1)) { //last node 
 		 solver->push();
 		 solver2->push();
 		 
@@ -168,7 +220,23 @@ z3::check_result Line::try_arbitrary_setting(z3::solver* solver, z3::solver* sol
 		 solver->add(*(arb_vec->at(position)) == s_->c->bool_val(true));
 		 solver2->add(*(arb_vec->at(position)) == s_->c->bool_val(true));
 
-		if(solver->check()!=solver2->check()) {
+			//do the abribtrary variable checking
+			if(try_arbitrary_setting_arbitraries(solver, solver2, get_arbitraries_vector(), 0)==z3::sat)
+				{
+				(solver->check()!=z3::sat)? result=z3::unsat : result=z3::sat; 
+				//std::cout << " => Arbitraries says SAT and "<< result << std::endl;
+				}
+			else
+				{
+				
+				(solver->check()!=z3::unsat)? result=z3::unsat : result=z3::sat;
+				//std::cout << " => Arbitraries says UNSAT and "<< result  << std::endl;
+				}
+				
+				
+
+		//if(solver->check()!=solver2->check()) {
+			if(result!=z3::sat) { //both solvers agree
 			solver->pop();
 			solver2->pop();
 			#ifdef DEBUGVERIFY
@@ -195,7 +263,22 @@ z3::check_result Line::try_arbitrary_setting(z3::solver* solver, z3::solver* sol
 			solver->add(*(arb_vec->at(position)) == s_->c->bool_val(false));
 			solver2->add(*(arb_vec->at(position)) == s_->c->bool_val(false));
 
-			(solver->check()!=solver2->check())? result=z3::unsat : result=z3::sat;
+			//(solver->check()!=solver2->check())? result=z3::unsat : result=z3::sat;
+			
+			//do the abribtrary variable checking
+			if(try_arbitrary_setting_arbitraries(solver, solver2, get_arbitraries_vector(), 0)==z3::sat)
+				{	
+				(solver->check()!=z3::sat)? result=z3::unsat : result=z3::sat; 
+				//std::cout << " => Arbitraries says SAT and "<< result  << std::endl;
+				}
+			else
+				{
+				(solver->check()!=z3::unsat)? result=z3::unsat : result=z3::sat;
+				//std::cout << " => Arbitraries says UNSAT and "<< result  << std::endl;
+				}
+	
+	
+	
 			solver->pop();
 			solver2->pop();
 			#ifdef DEBUGVERIFY
@@ -618,7 +701,7 @@ void EndLine::try_every_target_setting(GraphvizHandler* gh, std::vector<predicat
 
 	
 
-	path_lines->push_back(new line_eval(static_cast<Line*>(this),true, NULL)); //do this inside the cex analysis by adding predicates as true
+	path_lines->push_back(new line_eval(static_cast<Line*>(this),solver.check()==z3::sat, NULL)); //do this inside the cex analysis by adding predicates as true
 	s_->bool_mc_has_endless_loop = false;
 		
 		#ifdef DEBUGCEXANALYSIS
@@ -667,23 +750,24 @@ void EndLine::try_every_target_setting(GraphvizHandler* gh, std::vector<predicat
 
 void Line::AnalyseCounterExample(std::vector<line_eval*>* path_lines)
 {
+
 	z3::solver solver(*s_->c);
 	//std::vector<z3::expr*>* abs_vec = add_predicates(&solver, false);
 	//delete abs_vec;
 	bool cex_is_spurious = false;
-	std::vector<std::vector<z3::expr>*>* abstractions = new std::vector<std::vector<z3::expr>*>();
+	std::vector<std::vector<z3::expr>*>* code_lines = new std::vector<std::vector<z3::expr>*>();
 	
 	
 	
-	//add predicate conditions
+	//add predicate conditions -> don't add since we add the violated assert at the end (would imediatly contradict)
 	for(z3::expr pred : *s_->predicates_expr)
 	{
 	//std::cout << pred << std::endl;
-		solver.add(pred);
+		//solver.add(pred);
 	}
 	solver.push();
 
-	for(int index = path_lines->size()-1;index > 0;index--)
+	for(int index = path_lines->size()-1;index >= 0;index--)
 	{
 		//highlight the CEX Path in the Graphviz Graph
 		
@@ -696,19 +780,19 @@ void Line::AnalyseCounterExample(std::vector<line_eval*>* path_lines)
 		}
 		
 		LineAssignment* assignment_line = dynamic_cast<LineAssignment*>(path_lines->at(index)->line);
-		std::vector<z3::expr>* current_abstractions;
+		std::vector<z3::expr>* current_code_lines;
 		
 
-		if(abstractions->size()!=0) 
+		if(code_lines->size()!=0) 
 		{ //copy last abstraction line
-			current_abstractions = new std::vector<z3::expr>(*abstractions->back());			
+			current_code_lines = new std::vector<z3::expr>(*code_lines->back());			
 		}
 		else
 		{
-			current_abstractions = new std::vector<z3::expr>();
+			current_code_lines = new std::vector<z3::expr>();
 		}
 	
-		abstractions->push_back(current_abstractions);
+		code_lines->push_back(current_code_lines);
 
 
 		
@@ -722,25 +806,27 @@ void Line::AnalyseCounterExample(std::vector<line_eval*>* path_lines)
 		if(assignment_line!=NULL)
 		{
 			//is assignment -> do substitutions on previous stuff
-			assignment_line->substituteStuffInLastLine(current_abstractions, assignment_line);
+			assignment_line->substituteStuffInLastLine(current_code_lines, assignment_line);
 		}
-		else //its not an assignment line but e.g. an whipath_lines->at(index) condition
+		else //its not an assignment line but e.g. a while path_lines->at(index) condition
 		{
-			current_abstractions->push_back(path_lines->at(index)->line->getVerificationConjectureExpression()==s_->c->bool_val(path_lines->at(index)->eval));
-			//solver.add(abstractions->back()); //adds the code line
+			current_code_lines->push_back(path_lines->at(index)->line->getVerificationConjectureExpression()==s_->c->bool_val(path_lines->at(index)->eval));
+			//solver.add(code_lines->back()); //adds the code line
 		}
 		
 		//std::cout << solver << std::endl;
 		solver.pop();
 		solver.push();
-		for(z3::expr ex : *current_abstractions	)
+		std::cout << "Expressions in current CEX:"  << std::endl;
+		for(z3::expr ex : *current_code_lines	)
 		{
 		solver.add(ex);
+		std::cout << ex <<  std::endl;
 		}
 		
 		//std::cout << solver << std::endl;
 		
-		if(solver.check()==z3::unsat)
+		if(solver.check()==z3::unsat) //if it is unsat then the real program does not allow a path that the abstraction takes
 		{
 			#ifdef DEBUGCEXANALYSIS
 			std::cout << "Found Conflict (Line " << path_lines->at(index)->line->getLine() << ") - find new predicates" << std::endl;
@@ -749,7 +835,7 @@ void Line::AnalyseCounterExample(std::vector<line_eval*>* path_lines)
 			solver.pop();
 			solver.push();
 			std::cout << solver << std::endl;
-			cex_is_spurious = cex_is_spurious || findNewPredicates(&solver, abstractions, path_lines,0); //the moment we find predicates the CEX is spurious
+			cex_is_spurious = cex_is_spurious || findNewPredicates(&solver, code_lines, path_lines,0); //the moment we find predicates the CEX is spurious
 			break;
 		}
 		else
@@ -799,32 +885,48 @@ void LineAssignment::substituteStuffInLastLine(std::vector<z3::expr>* vec_expr, 
 	}
 }
 
-bool Line::findNewPredicates(z3::solver* solver, std::vector<std::vector<z3::expr>*>* abstractions, std::vector<line_eval*>* path_lines, int depth)
+bool Line::findNewPredicates(z3::solver* solver, std::vector<std::vector<z3::expr>*>* code_lines, std::vector<line_eval*>* path_lines, int depth)
 {	
-		int line_version = abstractions->size()-1;
+		int line_version = code_lines->size()-1;
 		int index = 0;
-		std::vector<z3::expr>* current_abstractions = abstractions->at(line_version);
+		std::vector<z3::expr>* current_code_lines = code_lines->at(line_version);
 		std::vector<z3::expr> new_predicates;
+		
+		//add all previous predicates so we can weed out new predicates that would contradict the old ones
+		z3::expr all_old_predicates = s_->c->bool_val(true);
+		for(z3::expr pred : *s_->predicates_expr)
+		{
+			all_old_predicates=all_old_predicates&&(pred);
+		}
+						
+						
 		solver->pop();
 		solver->push();
-		for(index = 0; index <= current_abstractions->size(); index++)//z3::expr ex : *current_abstractions	)
+		for(index = 0; index <= current_code_lines->size(); index++)//z3::expr ex : *current_code_lines	)
 		{
-			solver->add(current_abstractions->at(index));
+			solver->add(current_code_lines->at(index));
+			
+			std::cout << "Adding Line to solver: " <<  current_code_lines->at(index) << std::endl;
+			std::cout << *solver << std::endl;
 			if(solver->check()==z3::unsat)
 			{
-				//std::cout << "Found the culprid!: " << current_abstractions->at(index) << std::endl;
+				std::cout << "Found the culprid!: " << current_code_lines->at(index) << std::endl;
 				
-				for(line_version = abstractions->size()-1; line_version >= 0; line_version--)
+				//we need to check for the smallest combination of lines that cause the Conflict (might be even a combination of two lines that causes it but we dont check for that yet)
+				for(line_version = code_lines->size()-2; line_version >= 0; line_version--) //-2 since we discard the last added line which caused the unsat
 				{
-					current_abstractions = abstractions->at(line_version);
-					if(current_abstractions->size()>index)
+					current_code_lines = code_lines->at(line_version);
+					
+					//std::cout << "Current Code: " <<  current_code_lines->at(index) << std::endl;
+					if(current_code_lines->size()>index)
 					{
-						if(current_abstractions->at(index).simplify().to_string()!="false") //don't add false as new predicate (usually the last line-version simplifys to false)
+						if((current_code_lines->at(index)&&all_old_predicates).simplify().to_string()!="false") //don't add false as new predicate (usually the last line-version simplifys to false) or too early versions because predicate violates the wrong assert at the end
 						{
-							new_predicates.push_back(current_abstractions->at(index).simplify());
+							new_predicates.push_back(current_code_lines->at(index).simplify());
+							std::cout << "new predicate (with duplicates): " << new_predicates.back() << std::endl;
 						}
-						//std::cout << "in the line before: " << current_abstractions->at(index).simplify() << std::endl;
-						//std::cout << " (index=" << index << ", line_version=" << line_version << ", size=" << current_abstractions->size() << ")"<< std::endl;
+						//std::cout << "in the line before: " << current_code_lines->at(index).simplify() << std::endl;
+						//std::cout << " (index=" << index << ", line_version=" << line_version << ", size=" << current_code_lines->size() << ")"<< std::endl;
 					}
 				}
 				
@@ -837,6 +939,22 @@ bool Line::findNewPredicates(z3::solver* solver, std::vector<std::vector<z3::exp
 		{
 			std::cout << "new predicate: " << ex << std::endl;
 		}
+		
+		#ifdef DEBUGCEXANALYSIS
+		int count_version = 0;
+		std::cout << "Vector Lines: " << std::endl;
+		for(std::vector<z3::expr>* version : *code_lines)
+		{
+			count_version++;
+			std::cout << "Version " << count_version << " :" << std::endl;
+			for(z3::expr ex : *version)
+				{
+					std::cout << ex << "; ";
+				}
+			std::cout << std::endl;
+		}
+		#endif // ifdef DEBUGCEXANALYSIS
+		
 		
 		return (new_predicates.size()!=0); //if we found new predicates -> return true;
 }
